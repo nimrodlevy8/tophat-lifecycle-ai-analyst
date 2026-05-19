@@ -1,0 +1,117 @@
+# Analysis Patterns — recurring analytical patterns detected across analyses
+# Seeded from reference decks, updated by patterns skill after analyses
+schema_version: 1
+patterns:
+
+  - id: "PAT-001"
+    pattern: "Continuous Engagement correlates with retention and spend"
+    frequency: 4
+    datasets: ["mgo"]
+    first_seen: "2025-06-01"
+    description: |
+      The longer players keep playing into a minigame event (measured by last
+      currency-spend timespan %), the higher their 7-day return rate, the more
+      days they play next week, and the lower their churn rate. This holds for
+      both completers and non-completers, and even after excluding late-joiners
+      (joined after 10% into the event). Established via CE Metric Analysis
+      (Jun 2025) and validated across JJ, Dig, Coop, Boutique, and Carnival.
+    implication: |
+      Use Continuous Engagement as the primary mechanics-level health metric.
+      Optimize event design to keep players engaged deeper into events.
+
+  - id: "PAT-002"
+    pattern: "Low-engaged players benefit more from collaborative minigames"
+    frequency: 3
+    datasets: ["mgo"]
+    first_seen: "2025-09-01"
+    description: |
+      Adventures (V2, V3) show meaningfully higher 7-day return rates for
+      low-engaged players compared to Coop, especially for players teamed with
+      0-2 regular teammates (+14-18 ppt). Card mechanics and mini-milestones
+      in V3 appear to be key drivers. This effect is NOT present in V1.
+    implication: |
+      For low-engaged players, team composition matters. 2 regular teammates
+      appears to be a sweet spot that benefits low-engaged without hurting
+      regulars. V3 card + milestone mechanics outperform earlier versions.
+
+  - id: "PAT-003"
+    pattern: "Carry partners show degrading retention despite overall flat metrics"
+    frequency: 2
+    datasets: ["mgo"]
+    first_seen: "2026-04-01"
+    description: |
+      Overall Coop KPIs show no degradation trend, but sub-segmenting into
+      "pushers" (3-4 attractions at 50%+ progress) who also "carry partners"
+      (80%+ participation) reveals declining retention and ARPDAU. This group
+      is ~3% of regulars but ~5% of regular revenue. The decline persists
+      even for those who complete all 4 attractions. Masked by Simpson's
+      Paradox at the aggregate level.
+    implication: |
+      Always sub-segment beyond standard activity segments. High-effort,
+      high-value players can be degrading while aggregate metrics look flat.
+      Matchmaking improvements and segmentation should address partner balance.
+
+  - id: "PAT-004"
+    pattern: "Completion rate volatility positively correlates with return rate"
+    frequency: 2
+    datasets: ["mgo"]
+    first_seen: "2025-12-01"
+    description: |
+      Across 4 Boutique WWL runs, higher completion rate volatility (ratio of
+      low-engaged to high-engaged completion rates) shows a positive and
+      statistically significant correlation with 7-day return rate. However,
+      currency-sink volatility does NOT show the same correlation. This
+      suggests difficulty variance matters more than cost variance.
+    implication: |
+      Tune volatility through difficulty levers (not just economy). Both
+      difficulty and volatility levers should be used together. Volatility
+      alone may have negative impact — it must compensate with lower difficulty.
+
+  - id: "PAT-005"
+    pattern: "Return rate is extremely sensitive to player type composition"
+    frequency: 3
+    datasets: ["mgo"]
+    first_seen: "2025-09-01"
+    description: |
+      The % of regular players in an event strongly drives the aggregate
+      return rate. Events with higher regular composition appear to have
+      better return rates mechanically. This makes cross-event return rate
+      comparisons misleading without composition adjustment. Momentum Rate
+      is a better metric than D7 Return Rate for assessing regular engagement.
+    implication: |
+      Always check player type composition when comparing return rates across
+      events. Use Momentum Rate for regulars instead of D7 Return Rate.
+      Normalize or segment before concluding that one event "retains better."
+
+  - id: "PAT-006"
+    pattern: "Economy changes cause step-function shifts in engagement metrics"
+    frequency: 2
+    datasets: ["mgo"]
+    first_seen: "2025-06-01"
+    description: |
+      Value for Money increases (roll regen rates, progressive offers) cause
+      sharp step-ups in Continuous Engagement and completion rates. After the
+      Jun 2025 economy changes, Coop CE stepped up dramatically and has been
+      slightly growing since. This confounds trend analysis — must control for
+      economy change dates.
+    implication: |
+      When analyzing trends, always split pre/post major economy changes.
+      The Jun 2025 VfM increase is a critical breakpoint for Coop and Dig
+      analyses. Trend analysis on metrics that span this date is misleading
+      without the split.
+
+  - id: "PAT-007"
+    pattern: "Standard readout comparison framework: iterations + benchmarks + forecast"
+    frequency: 4
+    datasets: ["mgo"]
+    first_seen: "2025-06-01"
+    description: |
+      Every minigame readout compares against three reference points:
+      (1) prior iterations of the same event (WWL3 → WWL4),
+      (2) benchmark events of similar type and duration (1-day FF, JJ),
+      (3) forecast targets. Without all three, findings lack context.
+      Progressive offers running during benchmarks but not the target event
+      have been a recurring confound (Battleship WWL missed this initially).
+    implication: |
+      Always establish the three comparison axes. Check for confounds in
+      benchmark comparisons, especially progressive offers and seasonal effects.

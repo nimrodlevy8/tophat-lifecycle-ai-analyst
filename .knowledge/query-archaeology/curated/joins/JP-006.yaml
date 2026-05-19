@@ -1,0 +1,20 @@
+id: JP-006
+tables: [DM.fac_intraday_minigame_snapshot_daily, looker_sandbox.coop_attraction_progression]
+join_sql: |
+  -- First aggregate attractions to user×liveops in a CTE:
+  -- WITH user_attraction_counts AS (
+  --   SELECT user_id, liveops_id, ...
+  --   FROM `dwh-prod-tophat-exp.looker_sandbox.coop_attraction_progression`
+  --   GROUP BY ALL
+  -- )
+  LEFT JOIN user_attraction_counts ac
+    ON a.liveops_id = ac.liveops_id AND a.user_id = ac.user_id
+cardinality: "1:1"
+notes: |
+  Coop-specific: adds attraction progression metrics (participation %, attraction
+  completion buckets). Must pre-aggregate via CTE to user×liveops level before joining.
+  Only applicable for coop_event minigame type. Source is in experimental project
+  (dwh-prod-tophat-exp).
+validated: true
+dataset: mgo
+created_at: "2026-04-10"

@@ -1,0 +1,32 @@
+table_name: f_relationship_score_net
+dataset: mgo
+schema: dwh-prod-tophat.DM
+grain: group_id × snapshot_date (one row per player-pair per day)
+primary_key: [group_id, snapshot_date]
+
+columns_observed:
+  - snapshot_date                          # DATE — partition column, filter required
+  - group_id                               # STRING — lex-sorted "user_id_1|user_id_2" (pipe-separated)
+  - f_relationship_score                   # FLOAT64 — overall composite score (0-1)
+  - f_minigames_score                      # FLOAT64 — minigame interaction sub-score (0-1)
+  - f_sticker_score                        # FLOAT64 — sticker trading sub-score (0-1)
+  - f_shutdown_score                       # FLOAT64 — shutdown/attack interaction sub-score (0-1)
+  - f_community_chest_score                # FLOAT64 — community chest interaction sub-score (0-1)
+  - has_social_interactions                # BOOLEAN — whether pair has any social interaction history
+
+common_filters:
+  - "snapshot_date >= CURRENT_DATE() - 7  -- partition filter REQUIRED"
+
+gotchas:
+  - "PARTITION FILTER REQUIRED on snapshot_date — query will fail without it"
+  - "group_id is lex-sorted STRING concatenation: CONCAT(LEAST(CAST(user_a AS STRING), CAST(user_b AS STRING)), '|', GREATEST(CAST(user_a AS STRING), CAST(user_b AS STRING)))"
+  - "Scores range 0-1; f_relationship_score is a weighted composite of the sub-scores"
+  - "has_social_interactions = false does NOT mean score = 0; some pairs may have indirect relationship signals"
+
+common_joins:
+  - target_table: looker_sandbox.coop_attraction_progression
+    join_key: "Construct group_id from user_id + partner_user_id using LEAST/GREATEST lex-sort"
+    cardinality: "1:1"
+    notes: "Join on event start_date from dim_intraday_live_minigames. Pair up coop partners with their relationship score."
+
+updated_at: "2026-04-14"

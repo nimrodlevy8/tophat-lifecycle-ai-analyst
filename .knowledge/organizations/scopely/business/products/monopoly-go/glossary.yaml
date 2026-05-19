@@ -1,0 +1,116 @@
+# Monopoly Go — Game Glossary
+# Domain-specific terms for product analysis
+
+terms:
+  # Currencies
+  - term: "rolls"
+    definition: "Hard/premium currency. Consumed per dice roll (scaled by multiplier). Primary monetization product and engagement driver."
+    aliases: ["dice", "roll balance"]
+    category: currency
+
+  - term: "cash"
+    definition: "Soft currency earned from rent, heists, attacks. Spent on building landmarks. Cannot buy minigame tokens."
+    aliases: ["coins", "money"]
+    category: currency
+
+  - term: "minigame tokens"
+    definition: "Event-specific currencies earned from Tournaments/Milestones, spent to participate in minigames. Each minigame has its own token type."
+    aliases: ["event tokens", "dig tokens", "adventure tokens", "coop tokens", "carnival tokens", "drop tokens", "boutique tokens"]
+    category: currency
+
+  - term: "stickers"
+    definition: "Collection items for album progression. Earned from events, tournaments, board completion, IAP. Have 1-5 star rarity."
+    aliases: ["cards", "collectibles"]
+    category: currency
+
+  # Core Mechanics
+  - term: "multiplier"
+    definition: "Roll multiplier (1x/2x/3x/5x/10x). Higher = more rolls consumed per tap but proportionally higher rewards, rent, attack damage, steal amounts."
+    category: mechanics
+
+  - term: "smashdown"
+    definition: "Attack mechanic triggered by landing on Railroad. Damages opponent's landmark (reverts one level). Blocked by shields."
+    aliases: ["attack", "smash"]
+    category: mechanics
+
+  - term: "bank heist"
+    definition: "Steal mechanic triggered by landing on Utility. Steals cash from random opponent, scaled by their balance."
+    aliases: ["heist", "steal", "rob"]
+    category: mechanics
+
+  - term: "landmarks"
+    definition: "Buildings on property sets. Built with cash through ~5 levels. Completing all landmarks on a board = board advance. Net Worth = sum of all landmarks."
+    aliases: ["buildings", "properties"]
+    category: mechanics
+
+  - term: "net worth"
+    definition: "Sum of all landmarks built. Primary progression metric. Determines board level."
+    category: metrics
+
+  - term: "shields"
+    definition: "Defensive items (cap 3-5). Auto-absorb Smashdown attacks. Sources: Chance/Community Chest, daily rewards, purchases."
+    category: mechanics
+
+  # Minigame Terms
+  - term: "attractions"
+    definition: "Sub-goals in Coop events. Each has progress bar maxing at 80,000 points. Tracked via attraction_id."
+    category: minigames
+
+  - term: "pushers"
+    definition: "Coop players with 3-4 attractions at 50%+ and 80%+ participation rate. ~3% of regulars, ~5% of revenue. Analytically important sub-segment."
+    aliases: ["carry partners", "high-participation coop players"]
+    category: segments
+
+  - term: "rush events"
+    definition: "Short high-intensity tournament windows (10-30 min) with 2x-3x multipliers. Community saves rolls for these."
+    aliases: ["flags", "flag events", "rush"]
+    category: events
+
+  - term: "progressive offer"
+    definition: "Multi-stage IAP chain where each purchase unlocks the next (better) offer. Major monetization driver. Analytical confound when present in benchmark but not target period."
+    category: monetization
+
+  # Segments
+  - term: "regulars"
+    definition: "Consistently active players forming the core engagement and revenue base."
+    category: segments
+
+  - term: "low-engaged"
+    definition: "Below-threshold activity players. Key target for social minigame retention impact."
+    aliases: ["at-risk", "low activity"]
+    category: segments
+
+  - term: "reactivations"
+    definition: "Players who returned after absence. MUST be analyzed as separate segment — mixing with regulars inflates metrics."
+    aliases: ["reactivated", "returning players", "lapsed returned"]
+    category: segments
+
+  # Seasons
+  - term: "album season"
+    definition: "~50-65 day cycle with themed sticker album. Album completion is primary long-term engagement goal. Incomplete albums lost at season end."
+    aliases: ["season", "sticker season"]
+    category: progression
+
+  - term: "golden stickers"
+    definition: "Untradeable high-rarity sticker variants. Prestige items and completion gates. Only from specific events or purchases."
+    category: progression
+
+  # Economy
+  - term: "VfM"
+    definition: "Value for Money. June 2025 VfM increase was a structural economy breakpoint — step-function shift in engagement metrics."
+    aliases: ["value for money"]
+    category: economy
+
+  - term: "CE"
+    definition: "Continuous Engagement. Sustained play metric that correlates with retention and spend. Primary mechanics-level health metric."
+    aliases: ["continuous engagement"]
+    category: metrics
+
+  - term: "momentum rate"
+    definition: "CE metric tuned for regular players. Avoids reactivation noise. Use instead of raw return rate for regulars."
+    category: metrics
+
+  - term: "CR"
+    definition: "Completion Rate. Percentage of players completing a minigame event. CR volatility (low-engaged/high-engaged ratio) is analytically significant."
+    aliases: ["completion rate"]
+    category: metrics

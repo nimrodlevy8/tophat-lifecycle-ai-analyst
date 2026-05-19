@@ -1,0 +1,133 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/verify-hooks-health.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-sql.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-external-transfer.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-notebook-exfil.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-file-deletion.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-credential-exposure.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-email.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-notebook-exfil.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__atlassian__createJiraIssue|mcp__atlassian__editJiraIssue|mcp__atlassian__addCommentToJiraIssue|mcp__atlassian__addWorklogToJiraIssue|mcp__atlassian__transitionJiraIssue|mcp__atlassian__createIssueLink",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-jira-writes.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__atlassian__createConfluencePage|mcp__atlassian__updateConfluencePage|mcp__atlassian__createConfluenceFooterComment|mcp__atlassian__createConfluenceInlineComment",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-confluence-writes.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__google-workspace__set_drive_file_permissions",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-permission-changes.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__google-workspace__.*|mcp__google-docs__.*|mcp__google-slides__.*|mcp__atlassian__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-auth-email.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-file-deletion.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/audit-log-pre.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-credential-exposure.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/audit-log-post.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

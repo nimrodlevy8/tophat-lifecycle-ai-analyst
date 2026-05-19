@@ -1,0 +1,13 @@
+id: JP-003
+tables: [DM.fac_intraday_minigame_snapshot_daily, BIZ.f_minigame_continuous_engagement]
+join_sql: |
+  LEFT JOIN `dwh-prod-tophat.BIZ.f_minigame_continuous_engagement` b
+    ON a.liveops_id = b.liveops_id AND a.user_id = b.user_id
+cardinality: "1:1"
+notes: |
+  Adds continuous engagement metric (f_timestamp_last_currency_spent) per user per event.
+  LEFT JOIN — not all users have engagement data. Join at user×liveops level
+  (after aggregating the daily fact table).
+validated: true
+dataset: mgo
+created_at: "2026-04-10"

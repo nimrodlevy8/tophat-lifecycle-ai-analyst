@@ -1,0 +1,109 @@
+id: CK-011
+title: Adventure Per-Level Economy (Time-Windowed Level Attribution)
+description: |
+  Pattern for attributing adventure currency transactions to specific adventure levels.
+  Uses fac_intraday_adventure_snapshot_date_level_user_progression for level start times,
+  builds non-overlapping time windows per user×level, then joins sys_gti transactions
+  to the appropriate window. This enables per-level cost analysis and difficulty calibration.
+
+  IMPORTANT: Do NOT use reference_subtype_2 from sys_gti for level attribution — it is
+  unreliable. The progression table + time-window approach is the correct method.
+minigame_type: adventure
+source_hex_projects:
+  - "032VMTBXPwvjpkbkeFMNWe"  # Adventure V4 TSL2 Economy (has per-level cells)
+tables:
+  - dwh-prod-tophat.DM.fac_intraday_adventure_snapshot_date_level_user_progression
+  - dwh-prod-tophat.STD_tophat.sys_gti
+sql: |
+  -- Adventure Per-Level Currency Attribution
+  -- Prerequisite: eligible_users CTE must be defined upstream (see CK-007).
+  -- Replace {{LIVEOPS_IDS}} and {{DATE_RANGES}} with actual values.
+
+  WITH raw_level AS (
+      SELECT user_id, liveops_id, level,
+          ANY_VALUE(level_id) AS level_id,
+          MIN(f_start_time) AS raw_start
+      FROM `dwh-prod-tophat.DM.fac_intraday_adventure_snapshot_date_level_user_progression`
+      WHERE liveops_id IN ({{LIVEOPS_IDS}})
+          AND level IS NOT NULL
+          AND f_start_time IS NOT NULL
+      GROUP BY user_id, liveops_id, level
+  ),
+
+  -- Use event-date bounds (not liveops hour bounds) to match base table semantics
+  event_bounds AS (
+      SELECT DISTINCT liveops_id,
+          TIMESTAMP(event_start_date) AS event_start_ts,
+          TIMESTAMP_SUB(
+              TIMESTAMP(DATE_ADD(event_end_date, INTERVAL 1 DAY)),
+              INTERVAL 1 MICROSECOND
+          ) AS event_end_ts
+      FROM eligible_users
+  ),
+
+  ordered AS (
+      SELECT r.*, eb.event_start_ts, eb.event_end_ts,
+          ROW_NUMBER() OVER (PARTITION BY r.user_id, r.liveops_id ORDER BY r.raw_start) AS rn,
+          LEAD(r.raw_start) OVER (PARTITION BY r.user_id, r.liveops_id ORDER BY r.raw_start) AS next_start
+      FROM raw_level AS r
+      JOIN event_bounds AS eb USING (liveops_id)
+  ),
+
+  level_windows AS (
+      -- Active levels: first reaches back to event start, each ends at next level start
+      SELECT user_id, liveops_id, level, level_id,
+          CASE WHEN rn = 1 THEN event_start_ts ELSE raw_start END AS level_start_time,
+          COALESCE(next_start, event_end_ts) AS level_end_time
+      FROM ordered
+
+      UNION ALL
+
+      -- Synthetic level 0 for users with NO progression (assigned to team but never engaged)
+      SELECT e.user_id, e.liveops_id, 0 AS level,
+          'Level0_Placeholder' AS level_id,
+          TIMESTAMP(e.event_start_date) AS level_start_time,
+          TIMESTAMP_SUB(
+              TIMESTAMP(DATE_ADD(e.event_end_date, INTERVAL 1 DAY)),
+              INTERVAL 1 MICROSECOND
+          ) AS level_end_time
+      FROM eligible_users AS e
+      LEFT JOIN raw_level AS r ON e.user_id = r.user_id AND e.liveops_id = r.liveops_id
+      WHERE r.user_id IS NULL
+  ),
+
+  currency_tx AS (
+      SELECT user_id, collector_time, item_quantity,
+          transaction_type, transaction_subtype, reference_subtype
+      FROM `dwh-prod-tophat.STD_tophat.sys_gti`
+      WHERE DATE(collector_time) BETWEEN {{DATE_START}} AND {{DATE_END}}
+          AND item_id = 'adventure_event_currency'
+          AND transaction_type IN ('earn', 'gift', 'consume', 'convert')
+          AND LOWER(transaction_subtype) NOT LIKE '%cleanup%'
+          AND build_type = 1
+          AND user_id IN (SELECT user_id FROM eligible_users)
+  )
+
+  SELECT
+      e.liveops_id, e.user_id, e.team_id, e.segment_id,
+      e.is_complete, lw.level, lw.level_id,
+      -- Currency sink and all source subtypes (same CASE patterns as CK-007)
+      SUM(CASE WHEN t.transaction_subtype = 'AdventureEventAttemptSpend' THEN t.item_quantity END) AS currency_sink,
+      SUM(CASE WHEN t.transaction_type IN ('earn', 'gift') AND t.item_quantity > 0 THEN t.item_quantity END) AS currency_source,
+      -- ... additional source subtypes as needed
+      SUM(CASE WHEN t.transaction_type = 'earn' AND t.transaction_subtype = 'AdventureEventTeamGiftCardReward' AND t.item_quantity > 0 THEN t.item_quantity END) AS currency_source_givercard,
+      SUM(CASE WHEN t.transaction_type = 'earn' AND t.transaction_subtype = 'AdventureEventActionReward' AND t.reference_subtype = 'team_adventure' AND t.item_quantity > 0 THEN t.item_quantity END) AS currency_source_objects_rewards
+  FROM eligible_users AS e
+  INNER JOIN level_windows AS lw
+      ON e.user_id = lw.user_id AND e.liveops_id = lw.liveops_id
+  LEFT JOIN currency_tx AS t
+      ON e.user_id = t.user_id
+      AND t.collector_time BETWEEN lw.level_start_time AND lw.level_end_time
+  GROUP BY ALL
+notes: |
+  - Roll events do NOT carry level context — per-level analysis is currency-only.
+  - Always reconcile per-level sums back to the base (event-day windowed) table.
+  - The synthetic level-0 window catches passive income for non-engaging users.
+  - Use event-date bounds (00:00 event_start through end of event_end) NOT liveops
+    hour bounds — the latter drops transactions near event boundaries.
+  - level_id values vary by event theme (e.g., 'TLvl_Traversal01a_T02_M05' for V4,
+    'Fairytale_Level1' for FairyTales).

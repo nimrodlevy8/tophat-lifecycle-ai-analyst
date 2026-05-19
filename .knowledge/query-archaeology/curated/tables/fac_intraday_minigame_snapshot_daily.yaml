@@ -1,0 +1,47 @@
+table_name: fac_intraday_minigame_snapshot_daily
+dataset: mgo
+schema: dwh-prod-tophat.DM
+grain: user_id × liveops_id × snapshot_date (one row per user per minigame event per day)
+primary_key: [user_id, liveops_id, snapshot_date]
+
+columns_observed:
+  - user_id
+  - liveops_id
+  - snapshot_date
+  - f_event_completion_time          # timestamp — NULL if user didn't complete the event
+  - liveops_start_time               # timestamp — when the liveops event started for the user
+  - f_n_total_session_length_seconds  # total session time in seconds (divide by 60 for minutes)
+  - f_iap_revenue                    # IAP revenue for that user-day
+  - f_rolls_source_free              # free rolls earned
+  - f_rolls_sink                     # rolls spent
+  - f_rolls_source                   # total rolls earned (free + paid)
+  - f_currency_sink                  # event currency spent
+  - f_currency_source                # event currency earned
+  - f_currency_sink_to_complete      # currency spent to reach completion (only meaningful on completion date)
+  - f_rolls_sink_to_complete         # rolls spent to reach completion (only meaningful on completion date)
+  - f_successful_payments            # count of successful IAP transactions
+  - f_first_rolls_balance            # rolls balance at start of day
+  - f_last_rolls_balance             # rolls balance at end of day
+
+common_filters:
+  - "snapshot_date >= current_date - 365 AND snapshot_date < current_date"
+  - "snapshot_date >= '2025-01-01'"
+
+gotchas:
+  - "f_currency_sink_to_complete and f_rolls_sink_to_complete are only populated on the completion date — sum them only WHERE date(f_event_completion_time) = snapshot_date, otherwise you double-count"
+  - "liveops_id contains '@' for seasonal events — needs cleaning before human-readable grouping (see CK-002)"
+  - "This is the core fact table — always aggregate to user×liveops_id level first (subquery), then join dimensions"
+  - "GROUP BY ALL is used extensively with this table (BigQuery feature)"
+  - "f_currency_sink and f_rolls_sink use NEGATIVE values (expense convention) — to find participants who spent currency, filter f_currency_sink < 0, NOT > 0"
+
+common_joins:
+  - target_table: BIZ.v_f_user_standard_kpis
+    join_key: "user_id + snapshot_date (+ product_id = 105)"
+    cardinality: "1:1"
+    notes: "Enriches with user-level KPIs. Filter product_id = 105 for MGO."
+  - target_table: BIZ.dim_intraday_live_minigames
+    join_key: liveops_id
+    cardinality: "N:1"
+    notes: "Gets event metadata (minigame_type, start_date, end_date)"
+
+updated_at: "2026-04-10"

@@ -1,0 +1,5 @@
+organization: "Scopely"
+is_example: false
+focus: "Monopoly Go product analysis"
+sections:
+  products: products/index.yaml

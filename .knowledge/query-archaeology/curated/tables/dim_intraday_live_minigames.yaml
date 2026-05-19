@@ -1,0 +1,31 @@
+table_name: dim_intraday_live_minigames
+dataset: mgo
+schema: dwh-prod-tophat.BIZ
+grain: liveops_id (one row per minigame event)
+primary_key: [liveops_id]
+
+columns_observed:
+  - liveops_id
+  - minigame_type          # e.g., adventure, coop_event, prize_drop, minigame_dig, boutique, tycoon_race, carnival_games
+  - start_time             # timestamp — event start
+  - end_time               # timestamp — event end
+  - start_date             # date — event start date (may be derived)
+  - end_date               # date — event end date (may be derived)
+
+common_filters:
+  - "liveops_id NOT LIKE '%Internal%'  -- exclude internal tests"
+  - "minigame_type IN ('adventure', 'coop_event', 'prize_drop', 'minigame_dig', 'boutique', 'tycoon_race', 'carnival_games')"
+
+gotchas:
+  - "liveops_id contains '@' for seasonal/special events — use the cleaning pattern (CK-002) for human-readable grouping"
+  - "Always exclude '%Internal%' liveops_ids — these are internal test events"
+  - "start_date/end_date may need to be derived via DATE(start_time) depending on the query"
+  - "This is the event metadata dimension — join to fact tables via liveops_id"
+
+common_joins:
+  - target_table: DM.fac_intraday_minigame_snapshot_daily
+    join_key: liveops_id
+    cardinality: "1:N"
+    notes: "Event metadata lookup for minigame fact rows"
+
+updated_at: "2026-04-10"

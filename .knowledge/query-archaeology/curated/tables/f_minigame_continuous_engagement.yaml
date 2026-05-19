@@ -1,0 +1,25 @@
+table_name: f_minigame_continuous_engagement
+dataset: mgo
+schema: dwh-prod-tophat.BIZ
+grain: user_id × liveops_id (one row per user per minigame event)
+primary_key: [user_id, liveops_id]
+
+columns_observed:
+  - user_id
+  - liveops_id
+  - f_timestamp_last_currency_spent   # used as numerator for continuous engagement metric
+
+common_filters: []
+
+gotchas:
+  - "f_timestamp_last_currency_spent is a numeric value (not a timestamp despite the name) — used as a continuous engagement numerator"
+  - "SUM this value across users, then divide by an appropriate denominator for the engagement rate"
+  - "LEFT JOIN — not all users have continuous engagement data"
+
+common_joins:
+  - target_table: DM.fac_intraday_minigame_snapshot_daily
+    join_key: "user_id + liveops_id"
+    cardinality: "1:1"
+    notes: "Join after aggregating fact to user×liveops level"
+
+updated_at: "2026-04-10"

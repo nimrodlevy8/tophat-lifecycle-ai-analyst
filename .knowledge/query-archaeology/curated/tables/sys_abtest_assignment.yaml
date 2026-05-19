@@ -1,0 +1,33 @@
+table_name: sys_abtest_assignment
+dataset: mgo
+schema: dwh-prod-tophat.STD_tophat
+grain: user_id × test_id × variant_id × collector_time (assignment event level)
+primary_key: [user_id, test_id, collector_time]
+
+columns_observed:
+  - user_id
+  - test_id             # UUID identifying the A/B test
+  - variant_id          # UUID identifying the variant
+  - collector_time      # timestamp of assignment
+  - build_type          # 1 = production builds
+
+common_filters:
+  - "build_type = 1  -- production builds only, exclude dev/debug"
+  - "date(collector_time) >= 'YYYY-MM-DD'  -- filter by test start date"
+  - "test_id = 'UUID'  -- filter to specific test"
+
+gotchas:
+  - "variant_id is a UUID — must map to human-readable names (Control, Variant A, etc.) via CASE WHEN"
+  - "Always filter build_type = 1 to exclude non-production assignments"
+  - "A user can appear in multiple tests — use test_id filter"
+  - "Use SELECT DISTINCT when extracting assignments to deduplicate"
+  - "Variant ID → name mapping is test-specific — no lookup table exists, must be hardcoded per test (see CK-004)"
+  - "Multiple tests can be UNIONed in a CTE for cross-test analysis"
+
+common_joins:
+  - target_table: DM.fac_intraday_minigame_snapshot_daily
+    join_key: user_id
+    cardinality: "1:N"
+    notes: "LEFT JOIN test assignments to fact data. Join on user_id only (test assignment is user-level, not date-level)."
+
+updated_at: "2026-04-10"

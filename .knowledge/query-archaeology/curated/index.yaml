@@ -1,0 +1,52 @@
+# Query Archaeology — Curated Index
+# Auto-maintained by archive-analysis skill
+schema_version: 1
+cookbook_entries: 11
+table_cheatsheets: 12
+join_patterns: 11
+last_updated: "2026-05-15"
+
+# Cookbook (CK-001 to CK-008):
+#   CK-001: Minigame KPI Aggregation Framework
+#   CK-002: Liveops ID Cleaning Pattern
+#   CK-003: Player Segmentation Patterns
+#   CK-004: A/B Test Assignment Mapping
+#   CK-005: Coop Attraction Progression Analysis
+#   CK-006: Post-Event Cohort Retention Analysis
+#   CK-007: Racers Competition & KPI Analysis (competition_users wide view with segmentation, ARPU, conversion, momentum, d7 return)
+#   CK-008: Racers Player Flow Across WWL Events (category tracking: activity × race mode across 5 events, churn detection)
+#   CK-009: Adventure Economy Transactions (currency source/sink breakdown, eligible users, liveops segments, sys_gti decomposition)
+#   CK-010: Adventure Completion Curves (time-normalized progression, game_milestone, team-level objects, MMR segments)
+#   CK-011: Adventure Per-Level Economy (time-windowed level attribution via progression table, recon pattern)
+
+# Tables (12):
+#   fac_intraday_minigame_snapshot_daily (DM) — core daily fact
+#   v_f_user_standard_kpis (BIZ) — user KPI view
+#   dim_intraday_live_minigames (BIZ) — event metadata dim
+#   d_minigame_user_attributes (DM) — player segmentation
+#   d_intraday_minigame_completers (DM) — completer flag
+#   f_minigame_continuous_engagement (BIZ) — engagement metric
+#   sys_abtest_assignment (STD_tophat) — A/B test assignments
+#   coop_attraction_progression (looker_sandbox) — coop attractions
+#   fac_intraday_tycoon_race_snapshot_daily (DM) — racers user-day: MMR, score, invitations, race mode
+#   fac_intraday_tycoon_race_competition (DM) — racers bracket results: point spreads, placements
+#   fac_intraday_tycoon_race_team_stage_progression (DM) — racers team-stage: boosters, revenue, user_metrics
+#   fac_intraday_tycoon_race_hourly_progression (DM) — racers hourly pacing: points, economy per hour
+
+# Joins (JP-001 to JP-011):
+#   JP-001: minigame_snapshot ↔ user_kpis (same-day, INNER)
+#   JP-002: minigame_snapshot → live_minigames_dim (event metadata)
+#   JP-003: user_agg → continuous_engagement
+#   JP-004: user_agg → completers (boolean flag)
+#   JP-005: user_agg → user_attributes (segmentation)
+#   JP-006: user_agg → coop_attraction_progression (coop-specific)
+#   JP-007: user_agg → user_kpis (post-event cohort, ±30 day window)
+#   JP-008: tycoon_race_snapshot_daily → minigame_snapshot (user_id + liveops_id + snapshot_date) — enriches racers data with standard KPIs
+#   JP-009: tycoon_race_snapshot_daily → tycoon_race_competition (competition_id + liveops_id) — links user to bracket results
+#   JP-010: tycoon_race_team_stage_progression → tycoon_race_competition (competition_id + liveops_id + race_stage) — team details ↔ bracket
+#   JP-011: tycoon_race_snapshot_daily → user_attributes (user_id + liveops_id) — racers-specific segmentation
+
+# Raw SQL sources:
+#   raw/new-minigame-assessment-framework/ (3 files)
+#   raw/minigame-health-assessment-series/ (2 files)
+#   raw/racers-queries.sql — Racers competition analysis (4 query patterns: event listing, segmented participation, KPI framework, player flow)

@@ -1,0 +1,51 @@
+id: CK-003
+title: Player Segmentation Patterns
+description: |
+  Standard player segmentation schemes used across minigame analyses. These are
+  applied via parameterized CASE WHEN blocks. Three primary segmentation types,
+  plus A/B test variants.
+sql: |
+  -- Segmentation Type 1: Last 7 Day Active Segment
+  -- Source: d_minigame_user_attributes.f_last_7d_active_days
+  CASE
+    WHEN f_last_7d_active_days BETWEEN 1 AND 4 THEN '1. 1-4 day active'
+    WHEN f_last_7d_active_days BETWEEN 5 AND 6 THEN '2. 5-6 day active'
+    WHEN f_last_7d_active_days = 7 THEN '3. regular'
+    ELSE SAFE_CAST(f_last_7d_active_days AS STRING)
+  END
+
+  -- Segmentation Type 2: Liveops Segment (monetization tiers)
+  -- Source: d_minigame_user_attributes boolean flags
+  CASE
+    WHEN is_loyal_payer_first_day THEN '1. Loyal Payer'
+    WHEN is_regular_customer_first_day THEN '2. Regular Customer'
+    WHEN is_regular_first_day THEN '3. F2P Regular'
+    ELSE '4. Other'
+  END
+
+  -- Segmentation Type 3: Activity Segment (lifecycle stage)
+  -- Source: d_minigame_user_attributes.start_activity_segment
+  -- Ordered from most to least engaged:
+  -- Always Regular > Almost Regular > Casual > Volatile Activity >
+  -- Occasional > Funnel > Reactivation > Returning Reactivation > Path to Churn
+
+  -- Segmentation Type 4: Momentum (activity trend)
+  -- Source: comparing f_next_7d_active_days vs f_last_7d_active_days
+  CASE
+    WHEN f_next_7d_active_days > f_last_7d_active_days THEN 'upgrade'
+    WHEN f_next_7d_active_days < f_last_7d_active_days THEN 'downgrade'
+    WHEN f_next_7d_active_days = f_last_7d_active_days THEN 'stay'
+    ELSE 'other'
+  END
+
+  -- Segmentation Type 5: A/B Test (variant-based)
+  -- Use with CK-004 to map test assignments
+  -- player_type = coalesce(t3.variant_name, 'Control')
+dataset: mgo
+tables:
+  - DM.d_minigame_user_attributes
+tags: [segmentation, player-type, activity, monetization, lifecycle]
+source_analysis: new-minigame-assessment-framework/new_minigame_framework_kpis.sql
+created_at: "2026-04-10"
+last_used: "2026-04-10"
+use_count: 0

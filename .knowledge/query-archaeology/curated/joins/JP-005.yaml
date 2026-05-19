@@ -1,0 +1,14 @@
+id: JP-005
+tables: [DM.fac_intraday_minigame_snapshot_daily, DM.d_minigame_user_attributes]
+join_sql: |
+  LEFT JOIN `dwh-prod-tophat.DM.d_minigame_user_attributes` e
+    ON a.liveops_id = e.liveops_id AND a.user_id = e.user_id
+cardinality: "1:1"
+notes: |
+  Adds player segmentation attributes (activity segment, liveops segment, tenure,
+  cheater flag, d7_returner, momentum). This is the primary segmentation join.
+  LEFT JOIN — COALESCE NULLs for tenure_segment and is_cheater_first_day.
+  Join at user×liveops level.
+validated: true
+dataset: mgo
+created_at: "2026-04-10"

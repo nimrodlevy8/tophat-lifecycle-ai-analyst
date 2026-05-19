@@ -1,0 +1,103 @@
+# Monopoly GO! brand theme
+# Inherits from themes/_base.yaml — only overrides are listed here.
+# Extracted from the official MGO Data & Insights Deck Template (May 2025).
+# Design system reference: .knowledge/templates/design-system.md
+
+theme:
+  name: "monopoly-go"
+  display_name: "Monopoly GO!"
+  description: "Official Monopoly GO! analytics theme — dark purple, gold, and cream palette with Jost/Quicksand typography."
+
+colors:
+  primary: "#3B3447"          # Dark Purple — primary text, headings, key data series
+  secondary: "#DBC585"        # Accent Gold — highlights, accents, secondary series
+  accent: "#DF2728"           # Alert Red — negative metrics, warnings
+  neutral: "#CACACA"          # Medium Gray — borders, dividers, baseline/reference
+  background: "#FFFFFF"       # White — slide/chart background
+  text: "#3B3447"             # Dark Purple — body text
+  text_light: "#625C45"       # Olive Brown — captions, annotations, muted accent
+  # Categorical palette (7 colors, ordered for chart series)
+  # Sequence matches design-system.md chart color order
+  categorical:
+    - "#3B3447"   # dark purple (primary)
+    - "#DBC585"   # gold
+    - "#CE9AFF"   # light purple
+    - "#63D200"   # success green
+    - "#DF2728"   # alert red
+    - "#625C45"   # olive brown
+    - "#CACACA"   # medium gray (reference)
+  sequential:
+    low: "#F8F5E5"            # Warm Cream — lightest
+    mid: "#DBC585"            # Accent Gold — mid
+    high: "#3B3447"           # Dark Purple — darkest
+  diverging:
+    negative: "#DF2728"       # Alert Red — decline, loss
+    neutral: "#FFFFFF"        # White — midpoint
+    positive: "#63D200"       # Success Green — growth, improvement
+  highlight:
+    focus: "#3B3447"          # Dark Purple — draw attention to key data
+    comparison: "#CACACA"     # Medium Gray — de-emphasize supporting data
+    alert: "#DF2728"          # Alert Red — flag problems or outliers
+  # MGO-specific functional colors (not in base theme)
+  functional:
+    cream: "#F8F5E5"          # Warm Cream — callout fills, light backgrounds
+    light_green: "#B3E4BF"    # Soft Green — subtle positive indicators
+    off_white: "#F7F6F3"      # Off-White — card backgrounds
+    highlight_blue: "#26BEF7" # Sparingly — interactive/link elements
+    light_blue: "#B3E4FB"     # Soft blue accent
+    section_text: "#43384F"   # Darker purple — section divider text
+
+typography:
+  font_family: "Quicksand, Open Sans, Calibri, sans-serif"
+  heading_font: "Jost ExtraBold, Jost, Montserrat, Arial Bold, sans-serif"
+  monospace_font: "Proxima Nova, Arial, Calibri, monospace"
+  sizes:
+    title: 48                 # Slide titles (Jost ExtraBold)
+    subtitle: 22              # Cover subtitle (Proxima Nova)
+    body: 22                  # Body text (Quicksand)
+    body_dense: 18            # Dense layouts, A/B test decks
+    caption: 16               # Source attribution
+    annotation: 9             # Data callouts on charts
+    axis_label: 10            # Axis names
+    tick_label: 9             # Axis tick values
+    section_heading: 26       # Numbered section headers (Jost Bold)
+    graph_title: 20           # Chart titles above visuals (Jost Regular)
+    textbox_title: 24         # Callout box headers (Jost ExtraBold)
+    cover_title: 80           # Cover slide main text (Jost ExtraBold)
+    section_divider: 80       # Section break slides (Jost ExtraBold)
+  weights:
+    title: "800"              # ExtraBold
+    subtitle: "normal"
+    body: "normal"
+    emphasis: "bold"
+    section_heading: "bold"
+
+charts:
+  figure:
+    figsize: [10, 6]
+    dpi: 150
+    facecolor: "#FFFFFF"      # White background
+  axes:
+    facecolor: "#FFFFFF"      # White plot area
+    spine_color: "#CACACA"    # Medium gray spines
+  bar:
+    default_color: "#CACACA"  # Gray — context bars
+    highlight_color: "#3B3447" # Dark Purple — the story bar
+  line:
+    default_color: "#CACACA"  # Gray — context lines
+    highlight_color: "#3B3447" # Dark Purple — the story line
+  annotations:
+    color: "#3B3447"          # Dark Purple for readability
+    arrow_color: "#625C45"    # Olive arrows
+
+presentations:
+  slide_background: "#FFFFFF"
+  slide_text: "#3B3447"       # Dark Purple
+  slide_accent: "#DBC585"     # Accent Gold
+  # Callout boxes
+  callout_background: "#F8F5E5"  # Warm Cream
+  callout_border: "#DBC585"      # Gold left border accent
+  dark:
+    slide_background: "#3B3447"  # Dark Purple background
+    slide_text: "#F7F6F3"       # Off-White text
+    slide_accent: "#DBC585"     # Gold accent (same in dark mode)

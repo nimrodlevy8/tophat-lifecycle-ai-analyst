@@ -1,0 +1,82 @@
+table_name: fac_intraday_tycoon_race_snapshot_daily
+dataset: mgo
+schema: dwh-prod-tophat.DM
+grain: user_id × liveops_id × snapshot_date (one row per user per racers event per day)
+primary_key: [user_id, liveops_id, snapshot_date]
+
+columns_observed:
+  - user_id
+  - liveops_id                              # event identifier
+  - sk_liveops_event                        # surrogate key for liveops event
+  - snapshot_date                           # date of the snapshot
+  - insert_time                             # when the row was inserted
+  - competition_id                          # bracket/competition this user is in (NULL if not yet in race)
+  - team_id                                 # team the user belongs to (NULL if solo or not joined)
+  - race_mode                               # 'solo', 'team', or NULL (not yet joined)
+  - f_has_joined_team                       # boolean — whether user has joined a team
+  - f_has_entered_race                      # boolean — whether user has entered the race
+  - f_has_used_autofill                     # boolean — whether user used autofill for team
+  - f_n_days_since_joined                   # days since user joined this event
+  - f_n_days_since_tycoon_race_started      # days since the tycoon race event started
+  - f_user_mmr                              # user's individual MMR (matchmaking rating)
+  - f_team_mmr                              # team's MMR at time of snapshot
+  - f_ts_tycoon_race_event_joined           # timestamp when the user joined the event
+  # Score & progression
+  - f_n_score                               # user's current score in the event
+  - acum_n_score                            # accumulated score (running total)
+  - f_n_milestones_completed                # milestones completed on this day
+  - accum_n_milestones_completed            # accumulated milestones completed
+  - f_n_wheel_spins                         # wheel spins used this day
+  - acum_n_wheel_spins                      # accumulated wheel spins
+  # Team invitation metrics
+  - f_n_invitations_sent                    # invitations sent this day
+  - f_n_invitations_sent_accepted
+  - f_n_invitations_sent_declined
+  - f_n_invitations_received
+  - f_n_invitations_received_accepted
+  - f_n_invitations_received_declined
+  - f_n_join_team_request_sent
+  - f_n_join_team_request_sent_accepted
+  - f_n_join_team_request_sent_declined
+  # Accumulated invitation metrics (running totals)
+  - acum_n_invitations_sent
+  - acum_n_invitations_sent_accepted
+  - acum_n_invitations_sent_declined
+  - acum_n_invitations_received
+  - acum_n_invitations_received_accepted
+  - acum_n_invitations_received_declined
+  - acum_n_join_team_request_sent
+  - acum_n_join_team_request_sent_accepted
+  - acum_n_join_team_request_sent_declined
+
+common_filters:
+  - "snapshot_date >= '2025-01-01'"
+  - "f_has_entered_race = true  -- only users who entered the race"
+
+gotchas:
+  - "Users who open the event but never join a team/race have race_mode = NULL and f_has_entered_race = false"
+  - "f_user_mmr and f_team_mmr are matchmaking ratings — higher = more competitive bracket expected"
+  - "Invitation metrics are tracked both as daily increments (f_n_*) and running totals (acum_n_*)"
+  - "competition_id is NULL until the user enters a race — LEFT JOIN to competition table"
+  - "liveops_id contains '@' separator — clean with the standard liveops_id_cleaned pattern"
+  - "This is Racers-SPECIFIC daily snapshot — separate from fac_intraday_minigame_snapshot_daily which tracks standard KPIs (revenue, rolls, session time)"
+
+common_joins:
+  - target_table: DM.fac_intraday_minigame_snapshot_daily
+    join_key: "user_id + liveops_id + snapshot_date"
+    cardinality: "1:1"
+    notes: "Gets standard KPIs: revenue, rolls sink/source, session time, completion"
+  - target_table: DM.d_minigame_user_attributes
+    join_key: "user_id + liveops_id"
+    cardinality: "N:1"
+    notes: "Gets player segmentation: activity segment, tenure, payer status, cheater flag"
+  - target_table: DM.fac_intraday_tycoon_race_competition
+    join_key: "competition_id + liveops_id"
+    cardinality: "N:1"
+    notes: "Gets bracket-level results (point spreads, final placements)"
+  - target_table: BIZ.dim_intraday_live_minigames
+    join_key: liveops_id
+    cardinality: "N:1"
+    notes: "Gets event metadata"
+
+updated_at: "2026-04-16"

@@ -1,0 +1,16 @@
+id: JP-001
+tables: [DM.fac_intraday_minigame_snapshot_daily, BIZ.v_f_user_standard_kpis]
+join_sql: |
+  INNER JOIN `dwh-prod-tophat.BIZ.v_f_user_standard_kpis` t2
+    ON t1.user_id = t2.user_id
+    AND t2.product_id = 105
+    AND t1.snapshot_date = t2.snapshot_date
+cardinality: "1:1"
+notes: |
+  Enriches daily minigame snapshots with user-level KPIs (activity days, customer status, revenue).
+  Always filter product_id = 105 for MGO. Both sides must have matching date filters
+  (e.g., snapshot_date >= current_date - 365) to avoid cross-join blowup.
+  Used in new_minigame_framework_kpis.sql for the inner subquery.
+validated: true
+dataset: mgo
+created_at: "2026-04-10"

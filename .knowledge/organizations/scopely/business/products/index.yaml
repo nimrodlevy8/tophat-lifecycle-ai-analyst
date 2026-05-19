@@ -1,0 +1,16 @@
+products:
+  - name: "Monopoly Go"
+    type: "mobile game"
+    genre: "casual / board game"
+    platform: "iOS, Android"
+    studio: "Scopely"
+    description: "Free-to-play mobile Monopoly game with social mechanics, minigames, and collection systems"
+    knowledge_files:
+      - monopoly-go/glossary.yaml       # Game-specific terminology
+      - monopoly-go/core-mechanics.md    # Board, rolling, smashdown, heists, landmarks
+      - monopoly-go/minigames.md         # Social & solo minigames — detailed mechanics
+      - monopoly-go/economy.md           # Currencies, sources, sinks, flows
+      - monopoly-go/albums-seasons.md    # Album system, stickers, 60-day seasons
+      - monopoly-go/events-tournaments.md # Tournaments, milestones, timed events
+      - monopoly-go/kpis.md             # Key metrics for product analysis
+      - monopoly-go/player-sentiment.md  # Qualitative player feedback per minigame — pain points, strengths, player-type diffs

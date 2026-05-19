@@ -1,0 +1,64 @@
+table_name: fac_intraday_tycoon_race_hourly_progression
+dataset: mgo
+schema: dwh-prod-tophat.DM
+grain: user_id × competition_id × liveops_id × race_stage × stage_progress_interval (one row per user per hourly interval per stage)
+primary_key: [user_id, competition_id, liveops_id, race_stage, stage_progress_interval_start_time]
+
+columns_observed:
+  - user_id
+  - competition_id                          # bracket/competition instance
+  - liveops_id                              # event identifier
+  - sk_liveops_event                        # surrogate key for liveops event
+  - race_mode                               # 'solo' or 'team'
+  - race_stage                              # stage within the race (Race_1, Race_2, etc.)
+  - race_schedule_key                       # schedule configuration key
+  - team_id                                 # team the user belongs to
+  - insert_time                             # when the row was inserted
+  # Hourly interval boundaries
+  - stage_progress_interval_start_time      # start of the hourly window (TIMESTAMP)
+  - stage_progress_interval_end_time        # end of the hourly window (TIMESTAMP)
+  - stage_progress_interval_start_pct       # race progress % at interval start (0.0 - 1.0)
+  - stage_progress_interval_end_pct         # race progress % at interval end (0.0 - 1.0)
+  # Hourly metrics (incremental within the hour)
+  - f_total_points_awarded                  # points earned this hour
+  - f_n_progressed_actions                  # progression actions this hour
+  - f_n_milestones_finished                 # milestones completed this hour
+  - f_rolls_sink                            # rolls spent this hour
+  - f_rolls_source                          # rolls earned this hour
+  - f_currency_sink                         # event currency spent this hour
+  - f_currency_source                       # event currency earned this hour
+  # Accumulated metrics (running totals from event start)
+  - acum_total_points_awarded               # total points earned so far
+  - acum_n_progressed_actions               # total progression actions so far
+  - acum_n_milestones_finished              # total milestones completed so far
+  - acum_rolls_sink                         # total rolls spent so far
+  - acum_rolls_source                       # total rolls earned so far
+  - acum_currency_sink                      # total currency spent so far
+  - acum_currency_source                    # total currency earned so far
+
+common_filters:
+  - "race_stage NOT IN ('Podium')  -- hourly progression is during active races"
+
+gotchas:
+  - "This is an HOURLY grain table — can be very large. Always filter by liveops_id and optionally race_stage"
+  - "stage_progress_interval_*_pct values range from 0.0 to 1.0 (NOT percentages — multiply by 100 for display)"
+  - "Incremental metrics (f_*) are for the hour; accumulated metrics (acum_*) are running totals"
+  - "acum_currency_sink is negative (expense) — use ABS() for display or comparisons"
+  - "Useful for analyzing play patterns by time of day, sprint behavior (end-of-event surges), and pacing"
+  - "Join to user_attributes for segment-level hourly patterns"
+
+common_joins:
+  - target_table: DM.d_minigame_user_attributes
+    join_key: "user_id + liveops_id"
+    cardinality: "N:1"
+    notes: "Gets player segmentation for hourly pattern analysis"
+  - target_table: DM.fac_intraday_tycoon_race_competition
+    join_key: "competition_id + liveops_id + race_stage"
+    cardinality: "N:1"
+    notes: "Gets bracket results for the stage"
+  - target_table: BIZ.dim_intraday_live_minigames
+    join_key: liveops_id
+    cardinality: "N:1"
+    notes: "Gets event metadata"
+
+updated_at: "2026-04-16"

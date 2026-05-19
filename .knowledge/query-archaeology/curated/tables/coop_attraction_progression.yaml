@@ -1,0 +1,31 @@
+table_name: coop_attraction_progression
+dataset: mgo
+schema: dwh-prod-tophat-exp.looker_sandbox
+grain: user_id × liveops_id × attraction_id (one row per user per attraction per coop event)
+primary_key: [user_id, liveops_id, attraction_id]
+
+columns_observed:
+  - user_id
+  - liveops_id
+  - attraction_id                        # individual attraction within the coop event
+  - partner_user_id                      # the paired partner's user_id for this coop event
+  - max_bar_attraction_points            # pair's total progress on this attraction (80000 = 100%)
+  - player_contribution_attraction_points # points this player contributed
+
+common_filters: []
+
+gotchas:
+  - "This is in the looker_sandbox schema (experimental project dwh-prod-tophat-exp) — may be less stable than DM/BIZ tables"
+  - "attraction_id can be NULL or 'None' — filter these out when counting attractions"
+  - "max_bar_attraction_points = 80000 represents 100% completion; thresholds: ≤16000 = <20%, ≤40000 = 20-50%, ≤64000 = 50-80%, >64000 = >80%"
+  - "Always aggregate to user×liveops level via CTE before joining to the main query"
+  - "percent_total_participation is computed as SAFE_DIVIDE(SUM(player_contribution), SUM(max_bar)) then bucketed"
+  - "Specific to coop_event minigame type — not applicable to other minigame types"
+
+common_joins:
+  - target_table: DM.fac_intraday_minigame_snapshot_daily
+    join_key: "user_id + liveops_id"
+    cardinality: "1:1"
+    notes: "Join after aggregating attractions to user×liveops level via CTE"
+
+updated_at: "2026-04-10"

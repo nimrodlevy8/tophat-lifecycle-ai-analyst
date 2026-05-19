@@ -1,0 +1,124 @@
+id: CK-010
+title: Adventure Completion Curves (Time-Normalized Progression)
+description: |
+  Pattern for generating team-level completion progression curves across normalized
+  event time (0-100% in 5% increments). Uses game_milestone raw events to track
+  which objects each team completed and when, then computes avg completion rate per
+  MMR segment at each time bucket. This is the primary tool for cross-event difficulty
+  comparison and pacing analysis.
+minigame_type: adventure
+source_hex_projects:
+  - "0335HWXJ5jHebEzZDjFrh5"  # Adventures Progress Charts
+tables:
+  - dwh-prod-tophat.STD_tophat.game_milestone
+  - dwh-prod-tophat.DM.dim_intraday_adventure_teams
+  - dwh-prod-tophat.BIZ.dim_intraday_live_minigames
+sql: |
+  -- Adventure Completion Curves by MMR Segment
+  -- Replace {{LIVEOPS_IDS}}, {{DATE_START}}, {{DATE_END}} with actual values.
+  WITH events AS (
+      SELECT liveops_id, start_time AS event_start, end_time AS event_end
+      FROM `dwh-prod-tophat.BIZ.dim_intraday_live_minigames`
+      WHERE minigame_type = 'adventure'
+          AND liveops_id IN ({{LIVEOPS_IDS}})
+  ),
+
+  teams_users AS (
+      SELECT t.liveops_id, t.team_id,
+          t.mmr_segmentation_segment_id AS mmr_segment, m.user_id
+      FROM `dwh-prod-tophat.DM.dim_intraday_adventure_teams` AS t,
+          UNNEST(t.team_user_id_array) AS m
+      INNER JOIN events AS e ON t.liveops_id = e.liveops_id
+  ),
+
+  teams AS (
+      SELECT DISTINCT liveops_id, team_id, mmr_segment
+      FROM teams_users
+  ),
+
+  -- Count total non-treasure objects per event for normalization
+  milestone_reference AS (
+      SELECT gm.liveops_id, gm.milestone_id AS object_id
+      FROM `dwh-prod-tophat.STD_tophat.game_milestone` AS gm
+      INNER JOIN events AS e ON gm.liveops_id = e.liveops_id
+      WHERE DATE(gm.collector_date) BETWEEN {{DATE_START}} AND {{DATE_END}}
+          AND gm.milestone_id NOT IN ('0')
+          AND LOWER(gm.milestone_id) NOT LIKE '%treasure%'
+          AND REGEXP_CONTAINS(gm.milestone_id, r'_(object|obj)_')
+      GROUP BY gm.liveops_id, gm.milestone_id
+  ),
+
+  total_objects AS (
+      SELECT liveops_id, COUNT(DISTINCT object_id) AS total_non_treasure_objects
+      FROM milestone_reference
+      GROUP BY liveops_id
+  ),
+
+  -- Per-user milestone finish times
+  user_milestone_finishes AS (
+      SELECT gm.liveops_id, gm.user_id, gm.milestone_id AS object_id,
+          MIN(gm.collector_time) AS finished_at
+      FROM `dwh-prod-tophat.STD_tophat.game_milestone` AS gm
+      INNER JOIN events AS e ON gm.liveops_id = e.liveops_id
+      WHERE DATE(gm.collector_date) BETWEEN {{DATE_START}} AND {{DATE_END}}
+          AND gm.action_type = 'finished'
+          AND gm.milestone_id NOT IN ('0')
+          AND LOWER(gm.milestone_id) NOT LIKE '%treasure%'
+          AND REGEXP_CONTAINS(gm.milestone_id, r'_(object|obj)_')
+      GROUP BY gm.liveops_id, gm.user_id, gm.milestone_id
+  ),
+
+  -- Roll up to team level (earliest team member finish per object)
+  team_object_completions AS (
+      SELECT tu.liveops_id, tu.team_id, umf.object_id,
+          MIN(umf.finished_at) AS object_completed_at
+      FROM teams_users AS tu
+      INNER JOIN user_milestone_finishes AS umf
+          ON tu.liveops_id = umf.liveops_id AND tu.user_id = umf.user_id
+      GROUP BY tu.liveops_id, tu.team_id, umf.object_id
+  ),
+
+  -- Generate 5% time buckets (0, 5, 10, ..., 100)
+  time_buckets AS (SELECT pct FROM UNNEST(GENERATE_ARRAY(0, 100, 5)) AS pct),
+
+  event_bucket_cutoffs AS (
+      SELECT e.liveops_id, tb.pct,
+          TIMESTAMP_ADD(e.event_start, INTERVAL CAST(ROUND(
+              tb.pct / 100.0 * TIMESTAMP_DIFF(e.event_end, e.event_start, SECOND)
+          ) AS INT64) SECOND) AS bucket_cutoff
+      FROM events AS e CROSS JOIN time_buckets AS tb
+  ),
+
+  -- Count objects completed before each time bucket per team
+  team_bucket_completions AS (
+      SELECT t.liveops_id, t.team_id, t.mmr_segment,
+          ebc.pct AS pct_event_time,
+          COUNTIF(toc.object_completed_at <= ebc.bucket_cutoff) AS objects_completed
+      FROM teams AS t
+      INNER JOIN event_bucket_cutoffs AS ebc ON t.liveops_id = ebc.liveops_id
+      LEFT JOIN team_object_completions AS toc
+          ON t.liveops_id = toc.liveops_id AND t.team_id = toc.team_id
+      GROUP BY t.liveops_id, t.team_id, t.mmr_segment, ebc.pct
+  )
+
+  -- Final: avg completion rate per event × MMR segment × time bucket
+  SELECT
+      tbc.liveops_id,
+      tbc.pct_event_time,
+      tbc.mmr_segment,
+      AVG(tbc.objects_completed) AS avg_objects_completed,
+      ROUND(AVG(tbc.objects_completed) / tot.total_non_treasure_objects, 4) AS avg_pct_milestones_completed,
+      COUNT(DISTINCT tbc.team_id) AS n_teams
+  FROM team_bucket_completions AS tbc
+  INNER JOIN total_objects AS tot ON tbc.liveops_id = tot.liveops_id
+  GROUP BY tbc.liveops_id, tbc.pct_event_time, tbc.mmr_segment, tot.total_non_treasure_objects
+  ORDER BY tbc.liveops_id, tbc.mmr_segment, tbc.pct_event_time
+notes: |
+  - The game_milestone table is in STD_tophat (raw event stream) — always date-bound.
+  - Objects are identified by REGEXP on milestone_id: must contain '_object_' or '_obj_'.
+  - Treasure milestones must always be excluded.
+  - milestone_id = '0' is a sentinel value, always excluded.
+  - Teams are from dim_intraday_adventure_teams using team_user_id_array (UNNEST).
+  - Time normalization allows comparing events of different durations.
+  - When creating checkpoint tables (cross-event comparison), weight by n_teams
+    when aggregating across MMR segments.

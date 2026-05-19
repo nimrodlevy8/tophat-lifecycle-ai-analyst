@@ -1,0 +1,54 @@
+id: CK-005
+title: Coop Attraction Progression Analysis
+description: |
+  Pattern for analyzing player participation in coop events via attraction progression.
+  Pre-aggregates attraction-level data to user×liveops level in a CTE, computing
+  participation percentage buckets and attraction completion counts by threshold.
+  Specific to coop_event minigame type.
+sql: |
+  WITH user_attraction_counts AS (
+    SELECT
+      user_id,
+      liveops_id,
+      -- Overall progress flag
+      CASE WHEN SUM(max_bar_attraction_points) >= 10000 THEN TRUE
+           ELSE FALSE END AS is_total_progress_more_than_10000,
+      -- Attraction completion by threshold (80000 points = 100%)
+      COUNT(DISTINCT CASE WHEN attraction_id IS NOT NULL AND attraction_id != 'None'
+            AND max_bar_attraction_points <= 16000 THEN attraction_id END)
+            AS num_attractions_under_20pct,
+      COUNT(DISTINCT CASE WHEN attraction_id IS NOT NULL AND attraction_id != 'None'
+            AND max_bar_attraction_points > 16000 AND max_bar_attraction_points <= 40000
+            THEN attraction_id END) AS num_attractions_between_20_50pct,
+      COUNT(DISTINCT CASE WHEN attraction_id IS NOT NULL AND attraction_id != 'None'
+            AND max_bar_attraction_points > 40000 AND max_bar_attraction_points <= 64000
+            THEN attraction_id END) AS num_attractions_between_50_80pct,
+      COUNT(DISTINCT CASE WHEN attraction_id IS NOT NULL AND attraction_id != 'None'
+            AND max_bar_attraction_points > 64000 THEN attraction_id END)
+            AS num_attractions_over_80pct,
+      -- Total participation bucket
+      CASE
+        WHEN SAFE_DIVIDE(SUM(player_contribution_attraction_points),
+                         SUM(max_bar_attraction_points)) <= 0.2 THEN '0. Less Than 20%'
+        WHEN SAFE_DIVIDE(SUM(player_contribution_attraction_points),
+                         SUM(max_bar_attraction_points)) <= 0.5 THEN '1. 20% to 50%'
+        WHEN SAFE_DIVIDE(SUM(player_contribution_attraction_points),
+                         SUM(max_bar_attraction_points)) <= 0.8 THEN '2. 50% to 80%'
+        WHEN SAFE_DIVIDE(SUM(player_contribution_attraction_points),
+                         SUM(max_bar_attraction_points)) > 0.8 THEN '3. More Than 80%'
+        ELSE '4. Other'
+      END AS percent_total_participation
+    FROM `dwh-prod-tophat-exp.looker_sandbox.coop_attraction_progression`
+    GROUP BY ALL
+  )
+  -- Then join to main query via JP-006:
+  -- LEFT JOIN user_attraction_counts ac
+  --   ON a.liveops_id = ac.liveops_id AND a.user_id = ac.user_id
+dataset: mgo
+tables:
+  - looker_sandbox.coop_attraction_progression
+tags: [coop, attraction, progression, participation, minigame]
+source_analysis: minigame-health-assessment-series/coop_carry_partner_analysis_1.sql
+created_at: "2026-04-10"
+last_used: "2026-04-10"
+use_count: 0

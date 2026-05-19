@@ -1,0 +1,71 @@
+id: CK-001
+title: Minigame KPI Aggregation Framework
+description: |
+  Core pattern for minigame analysis: aggregate daily snapshots to user×liveops level
+  in a subquery, then join all dimension tables (event metadata, completers, user
+  attributes, continuous engagement). Produces a single wide result set with all
+  standard minigame KPIs segmented by player_type, tenure, and cheater flag.
+sql: |
+  SELECT
+    a.liveops_id,
+    a.liveops_id_cleaned,
+    c.minigame_type,
+    c.start_date AS event_start_date,
+    DATE_DIFF(c.end_date, c.start_date, DAY) AS event_duration_days,
+    -- Player segmentation (see CK-003 for segment definitions)
+    {player_type_expression} AS player_type,
+    COALESCE(e.start_tenure_segment, 'N/A') AS tenure_segment,
+    COALESCE(e.is_cheater_first_day, false) AS is_cheater,
+    CASE WHEN a.f_event_completion_time IS NOT NULL THEN true ELSE false END AS is_event_completer,
+
+    -- Standard metrics
+    COUNT(a.user_id) AS distinct_users,
+    COUNT(DISTINCT CASE WHEN COALESCE(a.currency_sink, 0) <> 0 THEN a.user_id END) AS distinct_event_players,
+    COUNT(DISTINCT d.user_id) AS distinct_completers,
+    COALESCE(SUM(a.session_length_minute), 0) AS session_length_minute,
+    COALESCE(SUM(a.revenue), 0) AS revenue,
+    COUNT(DISTINCT CASE WHEN COALESCE(a.revenue, 0) > 0 THEN a.user_id END) AS distinct_payers,
+    COALESCE(SUM(a.currency_sink), 0) AS currency_sink,
+    COALESCE(SUM(a.currency_source), 0) AS currency_source,
+    COALESCE(SUM(a.rolls_sink), 0) AS rolls_sink,
+    COALESCE(SUM(a.currency_sink_to_complete), 0) AS currency_sink_to_complete,
+    COALESCE(SUM(a.rolls_sink_to_complete), 0) AS roll_sink_to_complete,
+    COALESCE(SUM(a.successful_payments), 0) AS successful_payments,
+    COALESCE(SUM(b.f_timestamp_last_currency_spent), 0) AS continuous_engagement_numerator,
+    SUM(a.user_days_active) AS user_days_active,
+    COUNT(DISTINCT CASE WHEN e.d7_returner THEN a.user_id END) AS d7_returners,
+
+  FROM (
+    -- Step 1: Aggregate daily snapshots to user×liveops level
+    SELECT user_id, liveops_id,
+      MAX(f_event_completion_time) AS f_event_completion_time,
+      {liveops_id_cleaned_expression},  -- see CK-002
+      COALESCE(SUM(f_n_total_session_length_seconds / 60), 0) AS session_length_minute,
+      COALESCE(SUM(f_iap_revenue), 0) AS revenue,
+      -- ... all other metrics summed at user×liveops level
+    FROM `dwh-prod-tophat.DM.fac_intraday_minigame_snapshot_daily`
+    WHERE snapshot_date >= current_date - 365
+    GROUP BY ALL
+  ) a
+  LEFT JOIN `dwh-prod-tophat.BIZ.f_minigame_continuous_engagement` b    -- JP-003
+    ON a.liveops_id = b.liveops_id AND a.user_id = b.user_id
+  LEFT JOIN `dwh-prod-tophat.BIZ.dim_intraday_live_minigames` c         -- JP-002
+    ON a.liveops_id = c.liveops_id
+  LEFT JOIN `dwh-prod-tophat.DM.d_intraday_minigame_completers` d       -- JP-004
+    ON a.liveops_id = d.liveops_id AND a.user_id = d.user_id
+  LEFT JOIN `dwh-prod-tophat.DM.d_minigame_user_attributes` e           -- JP-005
+    ON a.liveops_id = e.liveops_id AND a.user_id = e.user_id
+  GROUP BY ALL
+  HAVING liveops_id_cleaned IN ({liveops_event_filter})
+dataset: mgo
+tables:
+  - DM.fac_intraday_minigame_snapshot_daily
+  - BIZ.f_minigame_continuous_engagement
+  - BIZ.dim_intraday_live_minigames
+  - DM.d_intraday_minigame_completers
+  - DM.d_minigame_user_attributes
+tags: [minigame, kpi, framework, segmentation, aggregation]
+source_analysis: new-minigame-assessment-framework/new_minigame_framework_kpis.sql
+created_at: "2026-04-10"
+last_used: "2026-04-10"
+use_count: 0

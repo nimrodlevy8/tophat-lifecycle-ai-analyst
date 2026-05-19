@@ -1,0 +1,38 @@
+id: CK-004
+title: A/B Test Assignment Mapping
+description: |
+  Pattern for extracting A/B test assignments from sys_abtest_assignment and mapping
+  UUID variant_ids to human-readable names. Multiple tests can be UNIONed in a single
+  CTE for cross-test analysis. Always filter build_type = 1 (production only).
+sql: |
+  WITH test AS (
+    SELECT DISTINCT
+      CASE
+        WHEN variant_id IN ('uuid-control') THEN 'Control'
+        WHEN variant_id IN ('uuid-variant-a') THEN 'Variant A'
+        WHEN variant_id IN ('uuid-variant-b') THEN 'Variant B'
+        -- ... add more variants as needed
+      END AS variant_name,
+      user_id,
+      'Test Display Name' AS test_name
+    FROM `dwh-prod-tophat.STD_tophat.sys_abtest_assignment`
+    WHERE date(collector_time) >= 'YYYY-MM-DD'  -- test start date
+      AND test_id = 'uuid-test-id'
+      AND build_type = 1  -- production builds only
+
+    UNION ALL
+
+    -- Repeat for additional tests...
+  )
+  -- Then LEFT JOIN to main query on user_id:
+  -- LEFT JOIN test t3 ON t1.user_id = t3.user_id
+  -- Use COALESCE(t3.test_name, 'ROW') and COALESCE(t3.variant_name, 'Control')
+  -- to default unassigned users
+dataset: mgo
+tables:
+  - STD_tophat.sys_abtest_assignment
+tags: [ab-test, experiment, variant-mapping, assignment]
+source_analysis: new-minigame-assessment-framework/boutique_ab_test.sql
+created_at: "2026-04-10"
+last_used: "2026-04-10"
+use_count: 0

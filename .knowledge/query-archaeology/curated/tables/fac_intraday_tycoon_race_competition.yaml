@@ -1,0 +1,56 @@
+table_name: fac_intraday_tycoon_race_competition
+dataset: mgo
+schema: dwh-prod-tophat.DM
+grain: competition_id × liveops_id (one row per competition/bracket per race stage)
+primary_key: [competition_id, liveops_id, race_stage]
+
+columns_observed:
+  - competition_id                          # unique bracket/competition instance
+  - liveops_id                              # event identifier (e.g., RaceCup_WL26@03252026_SE_TycoonRacers_WWL26)
+  - sk_liveops_event                        # surrogate key for the liveops event
+  - race_mode                               # 'solo' or 'team'
+  - race_stage                              # stage within the race (e.g., 'Podium', 'Race_1', 'Race_2')
+  - winner_team_id                          # team_id of the winning team/player
+  - f_n_first_place_points                  # points scored by 1st place
+  - f_n_second_place_points                 # points scored by 2nd place
+  - f_n_third_place_points                  # points scored by 3rd place
+  - f_n_fourth_place_points                 # points scored by 4th place
+  - f_n_point_spread_1_2_diff               # absolute point difference between 1st and 2nd
+  - f_n_point_spread_1_2_pct               # percentage spread between 1st and 2nd
+  - f_n_point_spread_1_4_diff               # absolute point difference between 1st and 4th
+  - f_n_point_spread_1_4_pct               # percentage spread between 1st and 4th
+  - team_details                            # REPEATED RECORD — nested array of team-level metrics
+
+nested_fields:
+  team_details:
+    - team_id                               # unique team identifier within the competition
+    - team_podium_position                  # final placement (0 = winner, 1 = 2nd, etc.)
+    - f_n_team_progress_points              # total progress points for the team
+    - f_n_team_currency_sink                # event currency spent by the team
+    - f_n_team_max_laps_completed           # highest lap count reached
+    - f_n_team_progression_transactions_with_boosters  # booster-assisted transactions
+    - f_n_team_to_winner_points_percentual_difference  # how far behind the winner (0.0 = winner, 1.0 = max gap)
+
+common_filters:
+  - "race_stage = 'Podium'  -- for final results only"
+  - "race_mode IN ('solo', 'team')"
+
+gotchas:
+  - "team_details is a REPEATED RECORD (array) — use UNNEST(team_details) to flatten"
+  - "team_podium_position = 0 means winner, NOT 'no placement'; positions are 0-indexed"
+  - "point_spread_1_2_pct = 0.0 can mean either tied or 2nd place scored 0"
+  - "race_stage = 'Podium' is the final stage with overall results; Race_1, Race_2 etc. are intermediate stages"
+  - "Solo races still have team_details with 1 player per 'team'"
+  - "liveops_id contains '@' for seasonal events — use liveops_id_cleaned pattern from racers-queries.sql"
+
+common_joins:
+  - target_table: BIZ.dim_intraday_live_minigames
+    join_key: liveops_id
+    cardinality: "N:1"
+    notes: "Gets event metadata (start_date, end_date, minigame_type)"
+  - target_table: DM.fac_intraday_tycoon_race_team_stage_progression
+    join_key: "competition_id + team_id + liveops_id + race_stage"
+    cardinality: "1:1"
+    notes: "Gets detailed team-level metrics (user breakdowns, boosters, revenue)"
+
+updated_at: "2026-04-16"

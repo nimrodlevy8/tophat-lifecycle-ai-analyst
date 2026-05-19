@@ -1,0 +1,38 @@
+table_name: d_minigame_user_attributes
+dataset: mgo
+schema: dwh-prod-tophat.DM
+grain: user_id × liveops_id (one row per user per minigame event)
+primary_key: [user_id, liveops_id]
+
+columns_observed:
+  - user_id
+  - liveops_id
+  - f_last_7d_active_days            # days active in 7 days before event
+  - f_next_7d_active_days            # days active in 7 days after event
+  - is_loyal_payer_first_day         # boolean — loyal payer segment at event start
+  - is_regular_customer_first_day    # boolean — regular customer segment at event start
+  - is_regular_first_day             # boolean — regular (F2P) segment at event start
+  - is_cheater_first_day             # boolean — cheater flag at event start
+  - start_tenure_segment             # string — tenure segment at event start
+  - end_tenure_segment               # string — tenure segment at event end
+  - start_activity_segment           # string — activity segment (Always Regular, Almost Regular, Casual, etc.)
+  - d7_returner                      # boolean — did user return 7 days after event
+
+common_filters:
+  - "coalesce(is_cheater_first_day, false) = false  -- exclude cheaters"
+  - "coalesce(end_tenure_segment, 'Attribute missing from d_minigame_user_attributes') IN (...)"
+
+gotchas:
+  - "Not all users have attributes — LEFT JOIN and handle NULLs with COALESCE"
+  - "start_tenure_segment can be NULL — use COALESCE with a descriptive fallback like 'Attribute missing from d_minigame_user_attributes'"
+  - "is_cheater_first_day can be NULL — always COALESCE to false before filtering"
+  - "This table is the source of truth for player segmentation at event boundaries"
+  - "Activity segments are ordered: Always Regular > Almost Regular > Casual > Volatile Activity > Occasional > Funnel > Reactivation > Returning Reactivation > Path to Churn"
+
+common_joins:
+  - target_table: DM.fac_intraday_minigame_snapshot_daily
+    join_key: "user_id + liveops_id"
+    cardinality: "1:N"
+    notes: "Attributes are event-level; fact rows are daily. Always join after aggregating fact to user×liveops level."
+
+updated_at: "2026-04-10"

@@ -1,0 +1,11 @@
+matplotlib>=3.7
+seaborn>=0.12
+pandas>=2.0
+numpy>=1.24
+scipy>=1.10
+duckdb>=0.9
+pyyaml>=6.0
+python-docx>=1.1
+psycopg2-binary>=2.9  # Postgres database connectivity
+snowflake-connector-python>=3.0  # Snowflake database connectivity
+python-dotenv>=1.0  # Environment variable management

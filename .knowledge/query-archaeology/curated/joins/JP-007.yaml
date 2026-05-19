@@ -1,0 +1,19 @@
+id: JP-007
+tables: [DM.fac_intraday_minigame_snapshot_daily, BIZ.v_f_user_standard_kpis]
+join_sql: |
+  LEFT JOIN `dwh-prod-tophat.BIZ.v_f_user_standard_kpis` f
+    ON a.user_id = f.user_id
+    AND f.snapshot_date BETWEEN a.last_day_active - 30 AND a.last_day_active + 30
+cardinality: "1:N"
+notes: |
+  Post-event cohort retention analysis. Unlike JP-001 (same-day enrichment), this
+  joins a ±30-day window around the user's last active day in the event. Produces
+  one row per cohort_day (DATE_DIFF from last_day_active). Used to measure:
+  - cohort_returned_players (is_active AND played the event)
+  - cohort_revenue (post-event revenue from event players)
+  - cohort_lapsed_players (next_7d < last_7d activity)
+  WARNING: This is an intentional fan-out join — produces ~60 rows per user.
+  Always include cohort_day in GROUP BY.
+validated: true
+dataset: mgo
+created_at: "2026-04-10"

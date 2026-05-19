@@ -1,0 +1,125 @@
+id: CK-009
+title: Adventure Economy Transactions (Currency Source/Sink Breakdown)
+description: |
+  Core pattern for adventure economy analysis. Builds a per-user per-hour transaction
+  fact table from sys_gti and sys_payment, joined to eligible adventure users with
+  team/segment context. Decomposes adventure_event_currency into 12+ distinct sources
+  plus the single sink (AdventureEventAttemptSpend). Also captures rolls and IAP.
+  This is the foundation for daily economy, per-segment economy, and cost-to-complete.
+minigame_type: adventure
+source_hex_projects:
+  - "0335MzbWYtT1dOxo6zrHvs"  # Adventure V4 TSL2 Economy (LRK Segments)
+  - "032VMTBXPwvjpkbkeFMNWe"  # Adventure V4 TSL2 Economy (base)
+tables:
+  - dwh-prod-tophat.DM.fac_intraday_adventure_user_snapshot_daily
+  - dwh-prod-tophat.DM.dim_intraday_adventure_teams
+  - dwh-prod-tophat.DM.d_minigame_user_attributes
+  - dwh-prod-tophat.BIZ.dim_intraday_live_minigames
+  - dwh-prod-tophat.STD_tophat.sys_gti
+  - dwh-prod-tophat.STD_tophat.sys_payment
+sql: |
+  -- Adventure Economy: eligible users + transaction decomposition
+  -- Replace {{LIVEOPS_IDS}} and {{DATE_RANGES}} with actual values.
+  WITH eligible AS (
+      SELECT
+          mg.start_date AS event_start_date,
+          mg.end_date AS event_end_date,
+          mg.start_time AS liveops_start_date,
+          mg.end_time AS liveops_end_date,
+          snap.liveops_id,
+          snap.user_id,
+          snap.team_id,
+          t.mmr_segmentation_config_id AS config_id,
+          t.mmr_segmentation_segment_id AS segment_id,
+          snap.is_autofilled_user AS is_autofilled,
+          FALSE AS is_late_joiner,
+          (t.n_cheater_players > 0) AS is_cheater_team,
+          MAX(CAST(snap.is_completer AS INT64)) > 0 AS is_complete
+      FROM `dwh-prod-tophat.DM.fac_intraday_adventure_user_snapshot_daily` AS snap
+      JOIN `dwh-prod-tophat.BIZ.dim_intraday_live_minigames` AS mg
+          USING (sk_liveops_event)
+      JOIN `dwh-prod-tophat.DM.dim_intraday_adventure_teams` AS t
+          ON snap.team_id = t.team_id AND snap.sk_liveops_event = t.sk_liveops_event
+      WHERE snap.liveops_id IN ({{LIVEOPS_IDS}})
+          AND snap.team_id IS NOT NULL
+          AND snap.team_id != 'None'
+      GROUP BY ALL
+  ),
+
+  transactions AS (
+      SELECT
+          user_id,
+          TIMESTAMP_TRUNC(collector_time, HOUR) AS snapshot_hour,
+          SUM(CASE WHEN transaction_subtype = 'AdventureEventAttemptSpend' AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_sink,
+          SUM(CASE WHEN transaction_type IN ('earn', 'gift') AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source,
+          SUM(CASE WHEN transaction_type = 'earn' AND reference_subtype LIKE '%tournament%' AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_tournament,
+          SUM(CASE WHEN transaction_type = 'earn' AND reference_subtype LIKE '%milestone%' AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_milestone,
+          SUM(CASE WHEN transaction_type = 'earn' AND reference_subtype IN ('quick wins','quick_wins') AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_quickwin,
+          SUM(CASE WHEN transaction_type = 'earn' AND transaction_subtype = 'FreeGift' AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_freegift,
+          SUM(CASE WHEN transaction_type = 'earn' AND transaction_subtype = 'AdHocIAMReward' AND reference_subtype = 'crm' AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_crm,
+          SUM(CASE WHEN transaction_type = 'earn' AND transaction_subtype = 'BoardPickupReward' AND reference_subtype = 'team_adventure' AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_board,
+          SUM(CASE WHEN transaction_type = 'earn' AND transaction_subtype = 'AdventureEventLevelReward' AND reference_subtype = 'team_adventure' AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_level_rewards,
+          SUM(CASE WHEN transaction_type = 'earn' AND transaction_subtype = 'AdventureEventActionReward' AND reference_subtype = 'team_adventure' AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_objects_rewards,
+          SUM(CASE WHEN transaction_type = 'earn' AND transaction_subtype = 'AdventureEventTeamGiftCardReward' AND item_quantity > 0 AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_givercard,
+          SUM(CASE WHEN transaction_type = 'earn' AND transaction_subtype = 'WebPortalLoyaltyProgramFreeGift' AND item_id = 'adventure_event_currency' AND item_quantity > 0 THEN item_quantity END) AS currency_source_web_portal_loyalty,
+          SUM(CASE WHEN transaction_type = 'gift' AND transaction_subtype = 'CustomerServiceAdmin' AND item_quantity > 0 AND reference_subtype = 'customer_service' AND item_id = 'adventure_event_currency' THEN item_quantity END) AS currency_source_cs_gift,
+          SUM(CASE WHEN transaction_type = 'consume' AND item_quantity < 0 AND item_id = 'rolls' THEN item_quantity END) AS rolls_sink,
+          SUM(CASE WHEN transaction_type = 'earn' AND item_quantity > 0 AND item_id = 'rolls' THEN item_quantity END) AS rolls_source,
+          0 AS iap_rev,
+          0 AS payments
+      FROM `dwh-prod-tophat.STD_tophat.sys_gti`
+      WHERE DATE(collector_time) BETWEEN {{DATE_START}} AND {{DATE_END}}
+          AND user_id IN (SELECT user_id FROM eligible)
+          AND item_id IN ('adventure_event_currency', 'rolls')
+          AND transaction_type IN ('earn', 'gift', 'consume', 'convert')
+          AND LOWER(transaction_subtype) NOT LIKE '%cleanup%'
+          AND build_type = 1
+      GROUP BY user_id, snapshot_hour
+
+      UNION ALL
+
+      SELECT
+          user_id,
+          TIMESTAMP_TRUNC(collector_time, HOUR) AS snapshot_hour,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          SUM(amount_us) AS iap_rev,
+          COUNT(DISTINCT event_id) AS payments
+      FROM `dwh-prod-tophat.STD_tophat.sys_payment`
+      WHERE DATE(collector_time) BETWEEN {{DATE_START}} AND {{DATE_END}}
+          AND success = TRUE
+          AND user_id IN (SELECT user_id FROM eligible)
+      GROUP BY user_id, snapshot_hour
+  )
+
+  SELECT
+      e.*, t.snapshot_hour, u.is_loyal_payer_first_day,
+      CASE
+          WHEN u.is_loyal_payer_first_day THEN '1. Loyal Payer'
+          WHEN u.is_regular_customer_first_day THEN '2. Regular Customer'
+          WHEN u.is_regular_first_day THEN '3. F2P Regular'
+          ELSE '4. Other'
+      END AS liveops_segment,
+      DATE_DIFF(t.snapshot_hour, TIMESTAMP(e.liveops_start_date), HOUR) AS hours_since_start,
+      ROUND(SAFE_DIVIDE(
+          DATE_DIFF(t.snapshot_hour, TIMESTAMP(e.liveops_start_date), HOUR),
+          DATE_DIFF(TIMESTAMP(e.liveops_end_date), TIMESTAMP(e.liveops_start_date), HOUR)
+      ), 1) AS ratio_hour_progressed,
+      SUM(COALESCE(t.currency_sink, 0)) AS currency_sink,
+      -- ... (remaining currency sources aggregated similarly)
+      SUM(COALESCE(t.rolls_sink, 0)) AS rolls_sink,
+      SUM(COALESCE(t.rolls_source, 0)) AS rolls_source,
+      SUM(COALESCE(t.iap_rev, 0)) AS iap_rev,
+      SUM(COALESCE(t.payments, 0)) AS payments
+  FROM eligible AS e
+  INNER JOIN transactions AS t
+      ON e.user_id = t.user_id
+      AND DATE(t.snapshot_hour) BETWEEN e.event_start_date AND e.event_end_date
+  LEFT JOIN `dwh-prod-tophat.DM.d_minigame_user_attributes` AS u
+      ON e.user_id = u.user_id AND e.liveops_id = u.liveops_id
+  GROUP BY ALL
+notes: |
+  - Always scope sys_gti date ranges tightly to the event dates for performance.
+  - The liveops_segment CASE order matters — is_loyal_payer takes priority.
+  - ratio_hour_progressed is useful for time-normalized comparisons across events.
+  - Exclude cleanup transactions (internal balance adjustments).
+  - build_type = 1 ensures production-only data.

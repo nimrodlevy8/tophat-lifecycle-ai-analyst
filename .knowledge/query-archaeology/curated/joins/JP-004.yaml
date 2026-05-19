@@ -1,0 +1,13 @@
+id: JP-004
+tables: [DM.fac_intraday_minigame_snapshot_daily, DM.d_intraday_minigame_completers]
+join_sql: |
+  LEFT JOIN `dwh-prod-tophat.DM.d_intraday_minigame_completers` d
+    ON a.liveops_id = d.liveops_id AND a.user_id = d.user_id
+cardinality: "1:1"
+notes: |
+  Tags users as completers (d.user_id IS NOT NULL). LEFT JOIN because most users
+  don't complete. Used for: distinct_completers, completers_revenue, payers_completers.
+  Join at user×liveops level.
+validated: true
+dataset: mgo
+created_at: "2026-04-10"

@@ -1,0 +1,34 @@
+table_name: v_f_user_standard_kpis
+dataset: mgo
+schema: dwh-prod-tophat.BIZ
+grain: user_id × snapshot_date × product_id (one row per user per day per product)
+primary_key: [user_id, snapshot_date, product_id]
+
+columns_observed:
+  - user_id
+  - snapshot_date
+  - product_id                        # 105 = Monopoly GO
+  - v_f_user_rpt.f_last_7d_active_days   # nested struct — days active in prior 7 days
+  - v_f_user_rpt.f_next_7d_active_days   # nested struct — days active in next 7 days
+  - v_f_user_rpt.is_customer             # nested struct — boolean, is the user a customer (has purchased)
+  - v_f_user_rpt.is_active               # nested struct — boolean, is the user active on this day
+  - v_f_user_rpt.f_iap_revenue           # nested struct — IAP revenue for this day
+
+common_filters:
+  - "product_id = 105  -- Monopoly GO"
+  - "snapshot_date >= current_date - 365 AND snapshot_date < current_date"
+
+gotchas:
+  - "This is a VIEW (v_f_) — may be slower than base tables for large date ranges"
+  - "Fields are nested inside v_f_user_rpt struct — access via v_f_user_rpt.field_name"
+  - "Always filter product_id = 105 for MGO analysis"
+  - "f_last_7d_active_days and f_next_7d_active_days are lookback/lookforward windows — useful for momentum analysis"
+  - "Used for post-event cohort analysis by joining on user_id with a date range around the event end date"
+
+common_joins:
+  - target_table: DM.fac_intraday_minigame_snapshot_daily
+    join_key: "user_id + snapshot_date"
+    cardinality: "1:1"
+    notes: "Primary enrichment join. Always include product_id = 105 in ON or WHERE."
+
+updated_at: "2026-04-10"

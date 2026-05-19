@@ -1,0 +1,13 @@
+id: JP-002
+tables: [DM.fac_intraday_minigame_snapshot_daily, BIZ.dim_intraday_live_minigames]
+join_sql: |
+  LEFT JOIN `dwh-prod-tophat.BIZ.dim_intraday_live_minigames` c
+    ON a.liveops_id = c.liveops_id
+cardinality: "N:1"
+notes: |
+  Gets event metadata (minigame_type, start_date, end_date, duration) for each liveops event.
+  LEFT JOIN because the fact table drives; the dim should always have the event.
+  Join after aggregating fact to user×liveops level.
+validated: true
+dataset: mgo
+created_at: "2026-04-10"

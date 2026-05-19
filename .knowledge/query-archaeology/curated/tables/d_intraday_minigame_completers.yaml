@@ -1,0 +1,25 @@
+table_name: d_intraday_minigame_completers
+dataset: mgo
+schema: dwh-prod-tophat.DM
+grain: user_id × liveops_id (one row per user per completed minigame event)
+primary_key: [user_id, liveops_id]
+
+columns_observed:
+  - user_id
+  - liveops_id
+
+common_filters: []
+
+gotchas:
+  - "Only contains users who completed the event — use LEFT JOIN from the fact table"
+  - "Used as a boolean flag via LEFT JOIN: d.user_id IS NOT NULL means completer"
+  - "Distinct completers = COUNT(DISTINCT d.user_id) after LEFT JOIN"
+  - "Can cross with revenue: payer-completers = users WHERE revenue > 0 AND d.user_id IS NOT NULL"
+
+common_joins:
+  - target_table: DM.fac_intraday_minigame_snapshot_daily
+    join_key: "user_id + liveops_id"
+    cardinality: "1:N"
+    notes: "LEFT JOIN to tag completers in the fact aggregation"
+
+updated_at: "2026-04-10"
