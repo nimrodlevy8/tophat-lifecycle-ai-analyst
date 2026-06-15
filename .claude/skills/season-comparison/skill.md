@@ -59,7 +59,7 @@ This means if the current album is 60% through, only compare the first 60% of ol
 2. Compute date bounds for partition pruning
 3. Pre-filter KPI (active users, segment filter, cheater exclusion)
 4. Join `fac_sinks_n_sources` with source classifier and album windows
-5. Aggregate source/sink by album and l1_Verticall
+5. Aggregate source/sink by album and l1_vertical
 6. Compute RTP = source_val / sink_val per (album, vertical)
 
 ## Segment Filter

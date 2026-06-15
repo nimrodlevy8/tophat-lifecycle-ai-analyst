@@ -115,6 +115,8 @@ condition matches -- you do not need to be asked.
 | Stress Test | `.claude/skills/stress-test/skill.md` | all | Invoked as `/stress-test` — standalone 7-point review of any analysis plan for methodological flaws (wrong baselines, survivorship bias, missing segments, confounds, no kill criteria). |
 | JIRA Incidents | `.claude/skills/jira-incidents/skill.md` | **minigame** | Invoked as `/jira-incidents` — per-minigame-event incident report: severity, TTR, minigame classification, narrative. Joins JIRA incidents with BQ minigame windows. |
 | Coop Analysis | `.claude/skills/coop-analysis/skill.md` | **minigame** | Analyzing coop (Partners) events — pusher classification, partner structure, social metrics, friend types, query patterns |
+| Economy RTP Analysis | `.claude/skills/economy-rtp-analysis/skill.md` | all | Calculating gameplay RTP, free/paid/general RTP — two-CTE methodology, source classifier, noise filtering |
+| Vertical RTP Analysis | `.claude/skills/vertical-rtp-analysis/skill.md` | all | RTP breakdown by l1_vertical — source contribution per game feature, vertical decomposition |
 | Hex Access | `.claude/skills/hex-access/skill.md` | all | Before ANY Hex interaction — CLI via WSL, create/run projects, manage cells, list connections |
 
 **How skills work:** Read the skill file when triggered and follow its instructions. Multiple skills can apply at once (e.g., Visualization Patterns + Triangulation).
